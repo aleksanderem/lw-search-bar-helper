@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LW Search Bar Helper
  * Description: Eksponuje dane mieszkań (CPT lokal) przez REST API /wp-json/lw/v1/apartments
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Liska Dev
  * Update URI: https://github.com/aleksanderem/lw-search-bar-helper
  * Requires PHP: 7.4
@@ -10,7 +10,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('LW_HELPER_VERSION', '1.0.0');
+define('LW_HELPER_VERSION', '1.0.1');
 define('LW_HELPER_DIR', plugin_dir_path(__FILE__));
 define('LW_HELPER_GITHUB_REPO', 'aleksanderem/lw-search-bar-helper');
 

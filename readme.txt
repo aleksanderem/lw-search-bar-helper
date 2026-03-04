@@ -3,7 +3,7 @@ Contributors: liskadev
 Requires at least: 5.9
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 
 Eksponuje dane mieszkań (CPT lokal) przez REST API /wp-json/lw/v1/apartments.
 
