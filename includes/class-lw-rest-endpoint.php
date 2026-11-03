@@ -42,6 +42,9 @@ class LW_Rest_Endpoint {
                 $status_name = 'Sprzedane';
             }
 
+            // Same slug the response exposes as `status`.
+            $hide_prices = $this->should_hide_prices($status_slug);
+
             // Rooms
             $rooms_terms = get_the_terms($post_id, 'liczba_pokoi');
             $rooms = 0;
@@ -110,18 +113,21 @@ class LW_Rest_Endpoint {
                 'nr_lokalu'  => $title,
             ], $inquiry_url);
 
-            // Price history
+            // Price history. Sold (and other hidden) statuses get an empty list
+            // and never read kolabo_price_history, so past prices stay off the public payload.
             $price_history = [];
-            $history_raw = get_post_meta($post_id, 'kolabo_price_history', true);
-            $last_mod = get_the_modified_time('Y-m-d H:i');
-            if (is_array($history_raw) && !empty($history_raw)) {
-                foreach ($history_raw as $row) {
-                    $when = !empty($row['ts']) ? get_date_from_gmt($row['ts'], 'Y-m-d H:i') : $last_mod;
-                    $human_total = !empty($row['human_total']) ? $row['human_total'] : ((isset($row['total']) && $row['total'] !== null) ? number_format((float)$row['total'], 0, ',', ' ') . ' zł' : '—');
-                    $price_history[] = [
-                        'price' => wp_strip_all_tags(html_entity_decode($human_total)),
-                        'date'  => $when,
-                    ];
+            if (!$hide_prices) {
+                $history_raw = get_post_meta($post_id, 'kolabo_price_history', true);
+                $last_mod = get_the_modified_time('Y-m-d H:i');
+                if (is_array($history_raw) && !empty($history_raw)) {
+                    foreach ($history_raw as $row) {
+                        $when = !empty($row['ts']) ? get_date_from_gmt($row['ts'], 'Y-m-d H:i') : $last_mod;
+                        $human_total = !empty($row['human_total']) ? $row['human_total'] : ((isset($row['total']) && $row['total'] !== null) ? number_format((float)$row['total'], 0, ',', ' ') . ' zł' : '—');
+                        $price_history[] = [
+                            'price' => wp_strip_all_tags(html_entity_decode($human_total)),
+                            'date'  => $when,
+                        ];
+                    }
                 }
             }
 
@@ -134,10 +140,10 @@ class LW_Rest_Endpoint {
                 'floor'                 => $floor,
                 'floor_num'             => $floor_num,
                 'area'                  => $prices['area'],
-                'price_total'           => $prices['total'],
-                'price_m2'              => $prices['m2'],
-                'price_total_formatted' => html_entity_decode($prices['human_total'], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'price_m2_formatted'    => html_entity_decode($prices['human_m2'], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'price_total'           => $hide_prices ? null : $prices['total'],
+                'price_m2'              => $hide_prices ? null : $prices['m2'],
+                'price_total_formatted' => $hide_prices ? null : html_entity_decode($prices['human_total'], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'price_m2_formatted'    => $hide_prices ? null : html_entity_decode($prices['human_m2'], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'investment'            => $investment,
                 'thumbnail'             => $thumbnail ?: '',
                 'gallery_3d'            => $gallery_3d,
@@ -187,5 +193,29 @@ class LW_Rest_Endpoint {
             'human_total' => ($total !== null) ? number_format($total, 0, ',', ' ') . ' zł' : '',
             'human_m2'    => ($m2 !== null) ? number_format($m2, 2, ',', ' ') . ' zł/m²' : '',
         ];
+    }
+
+    /**
+     * Whether public price fields should be nulled for this unit.
+     *
+     * Uses the same status slug that is returned as `status`. Area is not a price
+     * and stays visible. There is no separate snapshot key on the payload;
+     * kolabo_current_price_snapshot() only feeds price_total / price_m2.
+     *
+     * @param string $status_slug Slug from taxonomy status_mieszkania.
+     * @return bool
+     */
+    private function should_hide_prices($status_slug) {
+        /**
+         * Status slugs whose prices are omitted from the public apartments endpoint.
+         *
+         * @param string[] $statuses Default hides sprzedane only.
+         */
+        $statuses = apply_filters('lw_helper_hide_price_statuses', array('sprzedane'));
+        if (!is_array($statuses)) {
+            $statuses = array('sprzedane');
+        }
+
+        return in_array((string) $status_slug, $statuses, true);
     }
 }
